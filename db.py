@@ -14,7 +14,6 @@ db_user = config.get("DataBase", "User")
 db_password = config.get("DataBase", "Password")
 db_name = config.get("DataBase", "DB_name")
 db_host = config.get("DataBase", "Host")
-db_echo = config.get("DataBase", "Echo")
 
 # Подключаемся к базе данных PostgreSQL
 engine = create_engine(f'postgresql+psycopg2://{db_user}:{db_password}@/{db_name}?host={db_host}', echo=False)
@@ -51,6 +50,7 @@ def send_news_to_database(data):
     session.add(news_data)
     session.new
     session.commit()
+    return news_data
 
 def request_news_by_url(url):
     """ Чтение из базы данных по URL-адресу.

@@ -83,16 +83,15 @@ class NewsPage(ScraperData):
 
     def scraper_decorator(func):
         def wrapper(self, page_for_scraping, site_name):
-            news = []
-            news.append(site_name)
-            news.append(tageditor.cleaning_title
+            collected_news = []
+            collected_news.append(site_name)
+            collected_news.append(tageditor.cleaning_title
                     (page_for_scraping.soup.title))
-            news.append(func(page_for_scraping, site_name))
-            news.append("")
-            news.append(page_for_scraping.url)
-            db.send_news_to_database(news)
-            bot.send_news(db.request_news_by_url
-                    (page_for_scraping.url).id)
+            collected_news.append(func(page_for_scraping, site_name))
+            collected_news.append("")
+            collected_news.append(page_for_scraping.url)
+            news = db.send_news_to_database(collected_news)
+            bot.send_news(news)
         return wrapper
 
     @scraper_decorator
@@ -130,17 +129,24 @@ class NewsPage(ScraperData):
 
 
 def scrap_site(url, site_abbreviation, site_name):
+    """ Скрапинг полученных URL сайтов с новостями
     """
-    """
-    get_latest_news_url = ScraperData()
-    get_news_page = NewsPage()
-
     try:
+        # Объект класса получателя HTML-кода, где есть блок последних новостей
         page_latest_news = HTMLfromSite(url)
-        page_full_news = HTMLfromSite(get_latest_news_url.scrap_page
-                                    (page_latest_news, 
-                                    site_abbreviation, 
-                                    site_name))
+        # Объект класса скрапера URL последней новости
+        get_latest_news_url = ScraperData()
+        # Записывает в переменную URL на последнюю новость вызывая метод 
+        # скрапинга страницы хранящейся в объекте "page_latest_news"
+        latest_news_url = get_latest_news_url.scrap_page(page_latest_news, 
+                                                        site_abbreviation, 
+                                                        site_name)
+        # Объект класса получателя текста со страницы новости
+        page_full_news = HTMLfromSite(latest_news_url)
+        # Объект класса скрапера текста со страницы новости
+        get_news_page = NewsPage()
+        # Инструкция проеряет есть ли URL полной новости в базе данных
+        # При получении "None" запускает метод скрапинга страницы новости     
         if db.request_news_by_url(page_full_news.url) == None:        
             get_news_page.scrap_page(page_full_news, 
                                     site_abbreviation, 

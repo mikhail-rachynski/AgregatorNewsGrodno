@@ -16,18 +16,59 @@ channel = config.get("Telegram", "Channel")
 bot = telebot.TeleBot(token)
 
 
+def send_news(news):
+    """ Принимает ID новости из базы данных, получает её из базы данных
+    отправляет в телеграм
+    """
+    try:
+        # Получаем название сайта, заголовок и новость из базы данных
+        site = news.site
+        title = news.title
+        current_news = news.news
+        # Присваеваем экземпляр класса кнопок и передаём ID
+        button = InlineButtons(news)
+        # Форматируем заголовок и записываем в переменную title
+        f_title = "*" + site + ":\n" + title + "*"
+        # Количество символов для сообщений для отправки в канал
+        message_length = 1200
+        """Инструкця проверяет количество символов в исходной новости,
+        и если она меньше message_length, то отправляет полное сообщение 
+        в канал без кнопки "Читать полностью", а если новость больше
+        message_length, то ограничевает длину и добавляет кнопку 
+        "Читать полностью".
+        """
+        if len(current_news) < message_length:
+            # Форматируем сообщение для отправки если новость маленькая
+            formated_text = str(f_title) + "\n" + current_news
+            # Отправка новости в канал с кнопками
+            bot.send_message(channel, formated_text, parse_mode="Markdown", 
+                    reply_markup=button.main_channel_small_news())
+        else:
+            # Форматируем сообщение для отправки если новость большая
+            formated_text = str(f_title + "\n" + 
+                    news
+                    .news[0:message_length] + "...")
+            # Отправка новости в канал с кнопками
+            bot.send_message(channel, 
+                    formated_text, 
+                    parse_mode="Markdown", 
+                    reply_markup=button.main_channel())
+
+    except Exception as err:
+        print("BOT ERROR: ", err)
+
+
 class InlineButtons:  
     """ Класс кнопок под сообщением.
-    Принимает ID новости
+    Принимает объект новости
     """
-    def __init__(self, news_id):
-        self.id = news_id
-        self.url = db.request_news_by_id(news_id).url
+    def __init__(self, news):
+        self.url = news.url
         self.button = InlineKeyboardMarkup()
         self.read_all = InlineKeyboardButton(text='Читать полностью', 
-                        callback_data=self.id)
+                        callback_data=news.id)
         self.link_to_site = InlineKeyboardButton(text='Читать на сайте', 
-                        url=self.url)
+                        url=news.url)
 
     def markup_decorator(func):
         """Декоратор для методов кнопок.
@@ -67,51 +108,6 @@ class InlineButtons:
                     self.link_to_site)
 
 
-def send_news(news_id):
-    """ Принимает ID новости из базы данных, получает её из базы данных
-    отправляет в телеграм
-    """
-    try:
-        # Получаем название сайта, заголовок и новость из базы данных
-        site = db.request_news_by_id(news_id).site
-        title = db.request_news_by_id(news_id).title
-        current_news = db.request_news_by_id(news_id).news
-        # Присваеваем экземпляр класса кнопок и передаём ID
-        button = InlineButtons(news_id)
-        # Форматируем заголовок и записываем в переменную title
-        f_title = "*" + site + ":\n" + title + "*"
-        # Количество символов для сообщений для отправки в канал
-        message_length = 1200
-        """Инструкця проверяет количество символов в исходной новости,
-        и если она меньше message_length, то отправляет полное сообщение 
-        в канал без кнопки "Читать полностью", а если новость больше
-        message_length, то ограничевает длину и добавляет кнопку 
-        "Читать полностью".
-        """
-        if len(current_news) < message_length:
-            # Форматируем сообщение для отправки если новость маленькая
-            formated_text = str(f_title + "\n" + db.request_news_by_id
-                                                    (news_id).news)
-            # Отправка новости в канал с кнопками
-            bot.send_message(channel, 
-                    formated_text, 
-                    parse_mode="Markdown", 
-                    reply_markup=button.main_channel_small_news())
-        else:
-            # Форматируем сообщение для отправки если новость большая
-            formated_text = str(f_title + "\n" + 
-                    db.request_news_by_id(news_id)
-                    .news[0:message_length] + "...")
-            # Отправка новости в канал с кнопками
-            bot.send_message(channel, 
-                    formated_text, 
-                    parse_mode="Markdown", 
-                    reply_markup=button.main_channel())
-
-    except Exception as err:
-        print("BOT ERROR: ", err)
-
-
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
     """Функция ответных действий при нажатии кнопок.
@@ -137,11 +133,13 @@ def callback_query(call):
     else:
         """Если в call.data строка с цифрами, значит была нажата кнопка 
         "Читать полностью", цифра это ID новости
-        """       
-        news_title = str(db.request_news_by_id(call.data).title)
-        news_text = str(db.request_news_by_id(call.data).news)
-        lenght_news = int(len(news_text))
-        button = InlineButtons(call.data)
+        """
+        # Записываем объект из быза данных в переменную
+        news = db.request_news_by_id(call.data)       
+        title = news.title
+        text = news.news
+        lenght_news = int(len(text))
+        button = InlineButtons(news)
 
         if lenght_news < 4096:
             """ Отправка новости одним сообщением с кнопками от бота 
@@ -150,7 +148,7 @@ def callback_query(call):
             как сообщение одно.
             """
             bot.send_message(call.from_user.id, 
-                    "*" + news_title + "*" + "\n" + news_text, 
+                    "*" + title + "*" + "\n" + text, 
                     parse_mode="Markdown",
                     reply_markup=button.del_messages_from_bot("1"))
 
@@ -166,7 +164,7 @@ def callback_query(call):
             cut_news = []
             count = 1
             while count <= message_divider:
-                cut_news.append(news_text[math.ceil(
+                cut_news.append(text[math.ceil(
                     (lenght_news/message_divider)*(count-1)):
                     math.ceil((lenght_news/message_divider)*count)])
                 count += 1            
@@ -174,7 +172,7 @@ def callback_query(call):
             for id, item in enumerate(cut_news):           
                 if id == 0:
                     bot.send_message(call.from_user.id,
-                        "*" + news_title + "*" + "\n" + item, 
+                        "*" + title + "*" + "\n" + item, 
                         parse_mode="Markdown")
                 elif id == len(cut_news)-1:
                     bot.send_message(call.from_user.id, 
