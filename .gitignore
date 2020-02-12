@@ -1,0 +1,8 @@
+**/__pycache__/
+**/.vscode/
+**/Settings/
+**/tests/
+
+*.pyc
+*.pyo
+*.txt
