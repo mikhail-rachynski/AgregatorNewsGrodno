@@ -4,16 +4,58 @@ import psycopg2
 import db
 import configparser, math
 import sp
+import logging
+import time
+import flask
+
 
 
 config = configparser.ConfigParser()
 config.read(sp.path)
 
-token = config.get("Telegram", "Token")
 channel = config.get("Telegram", "Channel")
+token = config.get("Telegram", "Token")
+host = config.get("Telegram", "webhook")
+
+API_TOKEN = token
+# Хост и порт на которых запускается бот
+WEBHOOK_HOST = host 
+WEBHOOK_PORT = 443
+# Адреса которые прослушивает Flask
+WEBHOOK_LISTEN = '0.0.0.0'
+
+WEBHOOK_SSL_CERT = '/home/pi/webhook_cert.pem'  # Path to the ssl certificate
+WEBHOOK_SSL_PRIV = '/home/pi/webhook_pkey.pem'  # Path to the ssl private key
+
+WEBHOOK_URL_BASE = "https://%s:%s" % (WEBHOOK_HOST, WEBHOOK_PORT)
+WEBHOOK_URL_PATH = "/%s/" % (API_TOKEN)
+
+logger = telebot.logger
+telebot.logger.setLevel(logging.INFO)
+
+bot = telebot.TeleBot(API_TOKEN)
+
+app = flask.Flask(__name__)
 
 
-bot = telebot.TeleBot(token)
+# Пустая страница если зайти на хост с ботом
+@app.route('/', methods=['GET', 'HEAD'])
+def index():
+    return ''
+
+
+
+@app.route(WEBHOOK_URL_PATH, methods=['POST'])
+def webhook():
+    """Обработка пришедших данных от телеграм
+    """
+    if flask.request.headers.get('content-type') == 'application/json':
+        json_string = flask.request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return ''
+    else:
+        flask.abort(403)
 
 
 def send_news(news):
@@ -183,4 +225,21 @@ def callback_query(call):
                 else:
                     bot.send_message(call.from_user.id, 
                         item, parse_mode="Markdown")
-            
+
+
+# Удаляет предыдущие параметры webhook
+bot.remove_webhook()
+
+time.sleep(0.1)
+
+# Устанавливаем параметры webhook
+bot.set_webhook(url=WEBHOOK_URL_BASE + WEBHOOK_URL_PATH,
+                certificate=open(WEBHOOK_SSL_CERT, 'r'))
+
+
+if __name__ == "__main__":
+    app.run(host=WEBHOOK_LISTEN,
+            port=WEBHOOK_PORT,
+            ssl_context=(WEBHOOK_SSL_CERT, WEBHOOK_SSL_PRIV),
+            debug=True)         
+               

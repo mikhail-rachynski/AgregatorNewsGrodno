@@ -7,7 +7,7 @@ import os
 import bot
 import threading
 from time import sleep
-import logging
+
 
 headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36',}
 
@@ -132,7 +132,8 @@ def scrap_site(url, site_abbreviation, site_name):
     """ Скрапинг полученных URL сайтов с новостями
     """
     try:
-        # Объект класса получателя HTML-кода, где есть блок последних новостей
+        # Объект класса получателя HTML-кода, страницы с блоком
+        # последних новостей
         page_latest_news = HTMLfromSite(url)
         # Объект класса скрапера URL последней новости
         get_latest_news_url = ScraperData()
@@ -182,9 +183,4 @@ def main():
 
     
 if __name__ == '__main__':
-    # Инициализация потоков
-    t1 = threading.Thread(target=main, args=())
-    t2 = threading.Thread(target=bot.bot.polling, args=())
-    # Запуск потоков
-    t1.start()
-    t2.start()   
+    main()
